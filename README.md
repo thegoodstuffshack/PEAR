@@ -1,7 +1,6 @@
-# UEFI-Template-for-NASM
+# Project Ear (PEAR 🍐)
 
-- aim to create backbone for future UEFI projects
-- allow for use in VMs and bare metal
+An x86_64 asm program that reads and plays audio files
 
 ## Third Party Acknowledgement
 
