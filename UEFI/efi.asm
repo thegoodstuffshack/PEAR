@@ -85,7 +85,7 @@ section .text follows=.header
     NULL equ 0
 
 start:
-    and rsp, 0xFFFFFFFFFFFF0000 ; align to 64 bit
+    and esp, 0xFFFFFFF0 ; align
 
     ; values given by UEFI
     mov [EFI_Handle], rcx
@@ -203,51 +203,6 @@ start:
     jne error_print
     add rsp, 32
 
-    ; data file
-    sub rsp, 32
-    mov rcx, [EFI_ConOut]
-    lea rdx, [text.readingFile_string]
-    call [EFI_PrintString]
-    add rsp, 32
-
-    lea rdx, [DataFileProtocol]
-    lea r8, [DataFileName]
-    call openFile
-    cmp rax, EFI_ERR_SUCCESS
-    jne error_print
-
-    push qword [DataFileProtocol]
-    call getFileSize
-    cmp rax, EFI_ERR_SUCCESS
-    jne error_print
-    mov [DataFileSize], rdx
-
-    add rdx, 8 ; allow for 16 bit alignment
-    lea r8, [DataFilePtr]
-    call allocPool
-    cmp rax, EFI_ERR_SUCCESS
-    jne error_print
-
-    ; align 16
-    mov rax, [DataFilePtr]
-    and rax, 0xF
-    add [DataFilePtr], rax ; either 0 or 8
-
-    mov rcx, [DataFileProtocol]
-    lea rdx, [DataFileSize]
-    mov r8, [DataFilePtr]
-    call readFile
-    cmp rax, EFI_ERR_SUCCESS
-    jne error_print
-
-    mov rcx, [DataFileProtocol]
-    mov rax, [DRIVE_Root]
-    sub rsp, 32
-    call [rax + 2*8] ; Close
-    add rsp, 32
-    cmp rax, EFI_ERR_SUCCESS
-    jne error_print
-
     ; program file
     sub rsp, 32
     mov rcx, [EFI_ConOut]
@@ -287,7 +242,7 @@ start:
     cmp rax, EFI_ERR_SUCCESS
     jne error_print
 
-SystemInfoStructSize equ 3*8 + 2*4 + 2*8
+SystemInfoStructSize equ 3*8 + 1*4
     ; allocatePool for SystemInfoStruct
     mov rdx, SystemInfoStructSize
     lea r8, [temp_SystemInfoStructPtr]
@@ -308,10 +263,6 @@ SystemInfoStructSize equ 3*8 + 2*4 + 2*8
     mov [rcx + 3*8], rdx
     mov edx, [GOP_Height]
     mov [rcx + 3*8 + 1*4], edx
-    mov rdx, [DataFilePtr]
-    mov [rcx + 3*8 + 2*4], rdx
-    mov rdx, [DataFileSize]
-    mov [rcx + 3*8 + 2*4 + 1*8], rdx
 
     mov rbx, rcx
 
@@ -508,14 +459,8 @@ text:  ; each char becomes 00xxh when __utf16__ (uefi standard)
     ; Program Stuff
     ProgramFilePtr   dq 0
     ProgramFileSize  dq 0
-    ProgramFileName  dw __utf16__ `\\programs\\example_program.bin\0`
-    ProgramSignature db 'SIGNATUR' ; 8 bytes checked (can have more or less)
-
-    ; Optional Data Space
-    DataFileProtocol    dq 0
-    DataFilePtr         dq 0
-    DataFileSize        dq 0
-    DataFileName        dw __utf16__ `\\data\\example_data.bin\0`
+    ProgramFileName  dw __utf16__ `\\programs\\pear.bin\0`
+    ProgramSignature db 'Proj EAR' ; 8 bytes checked (can have more or less)
 
     ; Graphical Output Protocol
     GOP_Interface       dq 0

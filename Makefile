@@ -4,24 +4,21 @@ ASM_FLAGS = -f bin
 DriveFolder = ./HDA_DRIVE
 
 BootEFI = $(DriveFolder)/efi/boot/bootx64.efi
-ExampleProgram = $(DriveFolder)/programs/example_program.bin
-ExampleData = $(DriveFolder)/data/example_data.bin
+PEAR = $(DriveFolder)/programs/pear.bin
+UTIL_FUNCTIONS = ./src/util_functions
 
-.PHONY: makefile run
+.PHONY: makefile run src
+.SUFFIXES:
 
-all: $(BootEFI) $(ExampleProgram) $(ExampleData)
+all: $(BootEFI) $(PEAR)
 
 $(BootEFI): UEFI/efi.asm
 	-mkdir $(subst /,\\,$(dir $@))
 	$(ASM) $(ASM_FLAGS) -o$@ $^
 
-$(ExampleProgram): src/main.asm
+$(PEAR): src/main.asm src/*.asm $(UTIL_FUNCTIONS)/include.asm $(UTIL_FUNCTIONS)/*/*.asm
 	-mkdir $(subst /,\\,$(dir $@))
-	$(ASM) $(ASM_FLAGS) -o$@ $<
-
-$(ExampleData): src/example_data.asm
-	-mkdir $(subst /,\\,$(dir $@))
-	$(ASM) $(ASM_FLAGS) -o$@ $<
+	$(ASM) $(ASM_FLAGS) -dFUNCTIONS=\"$(UTIL_FUNCTIONS)/\" -o$@ $<
 
 run: all
 	qemu-system-x86_64 \
