@@ -30,7 +30,7 @@ printhex:
 .letters:
     add ebx, 'A' - 0xA
 .print:
-    call printchars
+    call printchar
 
     pop rcx
     pop rbx

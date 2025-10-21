@@ -19,7 +19,7 @@ printstring:
     movzx rbx, byte [rbx]
     or rbx, rbx
     jz .end
-    call printchars
+    call printchar
     pop rdi
     pop rbx
 

@@ -15,7 +15,7 @@ printchar_printcolour_off equ 0x00FFFFFF ; white
 ; IN rbx: ascii char
 ; IN rdi: dest (VRAM)
 ; IN r8d: screen width
-printchars:
+printchar:
     sub rbx, ' '
     cmp rbx, '~' - ' '
     jna .printable
