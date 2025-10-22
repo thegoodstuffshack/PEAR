@@ -24,9 +24,6 @@ SIS_ScreenWidth     equ 24
 SIS_ScreenHeight    equ 28
 
 
-; https://wiki.osdev.org/PCI
-; https://uefi.org/specs/UEFI/2.10/14_Protocols_PCI_Bus_Support.html?highlight=pci%20bus%20support
-; https://wiki.osdev.org/Intel_High_Definition_Audio#Identifying_HDA_on_a_machine
 start:
     mov [SIS], rbx
 
@@ -36,12 +33,16 @@ start:
     mov rdi, [rdi + SIS_VRAM]
     call printstring
 
-    mov ebx, 0xF14B1337
+    ; for now just configure for the qemu hda
+    call find_intel_hda
+
+    mov ebx, [INTEL_HDA_PCI_HEADER.bar0]
     mov rdi, [SIS]
     mov r8d, [rdi + SIS_ScreenWidth]
     mov rdi, [rdi + SIS_VRAM]
+    xor rax, rax
     mov eax, r8d
-    shl rax, 6
+    shl rax, 6 ; second line
     add rdi, rax
     call printhex
 
@@ -49,7 +50,21 @@ start:
     hlt
 
 
+; IN rbx: CHAR* error message
+error_and_halt:
+    mov rdi, [SIS]
+    mov r8d, [rdi + SIS_ScreenWidth]
+    mov rdi, [rdi + SIS_VRAM]
+    call printstring
+    cli
+    hlt
+
+
 helloworld: db "Hello World!", 0
+
+
+%include "src/pci.asm"
+%include "src/intel_hda.asm"
 
 %strcat _include FUNCTIONS "include.asm"
 %include _include

@@ -25,4 +25,5 @@ run: all
 	-bios ovmf-x64/OVMF-pure-efi.fd \
 	-drive format=raw,file=fat::rw::HDA_DRIVE \
 	-m 100M \
-	-monitor stdio
+	-monitor stdio \
+	-device intel-hda
