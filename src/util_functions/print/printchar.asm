@@ -9,13 +9,19 @@ printchar_bytesperpixel   equ 4
 printchar_printcolour_on  equ 0x00000000 ; black
 printchar_printcolour_off equ 0x00FFFFFF ; white
 
-; printchar
+; initialises printchar variables
+;
+; IN r8d: screen width
+init_printchar:
+    mov [printchar.Width], r8d
+    ret
+
 ; copies a 16x16 bit character into VRAM
 ;
 ; IN rbx: ascii char
 ; IN rdi: dest (VRAM)
-; IN r8d: screen width
 printchar:
+    mov r8d, [.Width]
     sub rbx, ' '
     cmp rbx, '~' - ' '
     jna .printable
@@ -60,6 +66,9 @@ printchar:
 
 .end:
     ret
+
+    align 4
+.Width: dd 0
 
 %strcat _printchar_bitfont FUNCTIONS "print/bitfont.bin"
 printchar_bitfont: incbin _printchar_bitfont

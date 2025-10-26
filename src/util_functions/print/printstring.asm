@@ -5,13 +5,11 @@
 [bits 64]
 [default rel]
 
-; printstring
 ; copies a null-terminated string of 16x16 bit characters into VRAM
 ; doesnt work well if string surpasses width of screen
 ;
-; IN rbx: CHAR*
 ; IN rdi: dest (VRAM)
-; IN r8d: screen width
+; IN rbx: CHAR*
 printstring:
 .loop:
     push rbx

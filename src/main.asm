@@ -26,24 +26,27 @@ SIS_ScreenHeight    equ 28
 
 start:
     mov [SIS], rbx
+    mov r8d, [rbx + SIS_ScreenWidth]
+    call init_printchar
 
     lea rbx, [helloworld]
     mov rdi, [SIS]
-    mov r8d, [rdi + SIS_ScreenWidth]
     mov rdi, [rdi + SIS_VRAM]
     call printstring
 
     ; for now just configure for the qemu hda
     call find_intel_hda
 
+    xor rbx, rbx
     mov ebx, [INTEL_HDA_PCI_HEADER.bar0]
+    mov bx, [rbx + IHDA_REG_GLOBALCONTROL]
+    and ebx, 0x0000FFFF
     mov rdi, [SIS]
+    xor r8, r8
     mov r8d, [rdi + SIS_ScreenWidth]
     mov rdi, [rdi + SIS_VRAM]
-    xor rax, rax
-    mov eax, r8d
-    shl rax, 6 ; second line
-    add rdi, rax
+    shl r8, 6 ; second line
+    add rdi, r8
     call printhex
 
     cli

@@ -5,12 +5,10 @@
 [bits 64]
 [default rel]
 
-; printhex
 ; copies eight 16x16 bit hex characters into VRAM
 ;
+; IN rdi: dest (VRAM)w
 ; IN ebx: hex value
-; IN rdi: dest (VRAM)
-; IN r8d: screen width
 printhex:
     mov cl, 32
 .loop:
