@@ -37,6 +37,8 @@ start:
     ; for now just configure for the qemu hda
     call find_intel_hda
 
+    call start_hda_controller
+
     xor rbx, rbx
     mov ebx, [INTEL_HDA_PCI_HEADER.bar0]
     mov bx, [rbx + IHDA_REG_GLOBALCONTROL]

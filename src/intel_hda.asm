@@ -1,9 +1,11 @@
 ; intel_hda.asm
+;
+; https://www.intel.com/content/dam/www/public/us/en/documents/product-specifications/high-definition-audio-specification.pdf
 
 QEMU_HDA_VENDOR equ 0x8086
 QEMU_HDA_DEVICE equ 0x2668
 
-align 4
+    align 4
 ; PCI Header Type 0
 INTEL_HDA_PCI_HEADER:
 .vendor: dw 0
@@ -34,6 +36,9 @@ INTEL_HDA_PCI_HEADER:
 .intpin: db 0
 .mingrant: db 0
 .maxlatency: db 0
+
+; Intel HDA Device Register Offsets
+IHDA_REG_GLOBALCONTROL equ 0x8
 
 
 ; finds and populates the local hda header
@@ -107,7 +112,29 @@ find_intel_hda:
     ret
 
 
+; 4.2.2 - set CRST bit and wait until out of reset
+start_hda_controller:
+    ; start wakeup
+    xor rax, rax
+    mov eax, [INTEL_HDA_PCI_HEADER.bar0]
+    or byte [rax + IHDA_REG_GLOBALCONTROL], 0x01
+
+    ; wait til out of reset
+.wait:
+    mov bl, [rax + IHDA_REG_GLOBALCONTROL]
+    and bl, 1
+    jz .wait
+
+    ; set WAKEEN and STATESTS bits here if not power reset
+
+    ; add 521 micro second sleep here (add PIT)
+
+.end:
+    ret
+
+
+
 error_hda_not_found_str: db "Error: intel HDA not found", 0
 error_hda_not_hda_str: db "Error: intel HDA found but not actually", 0
-error_hda_io_space_bar_str: db "Error: I/O space bar not supported", 0
+error_hda_io_space_bar_str: db "Error: I/O space BAR not supported", 0
 error_hda_64_bit_bar_str: db "Error: 64 bit BAR not supported", 0
