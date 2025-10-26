@@ -22,10 +22,14 @@ read_pci_config:
     ; 0000 0000 busn busn devi cfun rego fset
     or eax, 0x80000000	; set bit 31
 
+    cli
     mov dx, PCI_ADDRESS
     out dx, eax
     mov dx, PCI_DATA
     in eax, dx
+    sti
+
+.end:
     ret
 
 
