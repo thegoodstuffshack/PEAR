@@ -7,7 +7,7 @@
 
 ; copies eight 16x16 bit hex characters into VRAM
 ;
-; IN rdi: dest (VRAM)w
+; IN rdi: dest (VRAM)
 ; IN ebx: hex value
 printhex:
     mov cl, 32
@@ -33,11 +33,9 @@ printhex:
     pop rcx
     pop rbx
     pop rdi
-    or cl, cl
-    jz .end
-
     add rdi, printchar_bitfont_width * printchar_bytesperpixel
-    jmp .loop
+    or cl, cl
+    jnz .loop
 
 .end:
     ret
