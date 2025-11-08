@@ -222,14 +222,18 @@ start:
     jne error_print
     mov [ProgramFileSize], rdx
 
+    add rdx, 255 ; allow for align to 256 bytes
     lea r8, [ProgramFilePtr]
     call allocPool
     cmp rax, EFI_ERR_SUCCESS
     jne error_print
 
+    mov r8, [ProgramFilePtr]
+    add r8, 255
+    and r8b, 0 ; align 256 bytes
+    mov [ProgramFilePtr], r8
     mov rcx, [DRIVE_ProgramFile]
     lea rdx, [ProgramFileSize]
-    mov r8, [ProgramFilePtr]
     call readFile
     cmp rax, EFI_ERR_SUCCESS
     jne error_print
@@ -242,7 +246,7 @@ start:
     cmp rax, EFI_ERR_SUCCESS
     jne error_print
 
-SystemInfoStructSize equ 3*8 + 1*4
+SystemInfoStructSize equ 3*8 + 2*4
     ; allocatePool for SystemInfoStruct
     mov rdx, SystemInfoStructSize
     lea r8, [temp_SystemInfoStructPtr]
@@ -447,7 +451,7 @@ text:  ; each char becomes 00xxh when __utf16__ (uefi standard)
     EFI_MM_MapKey   dq 0
     EFI_MM_DescSize dq 0
     EFI_MM_DescVer  dq 0
-    
+
     ; Drive Protocol
     DRIVE_Handle        dq 0
     DRIVE_Root          dq 0

@@ -7,7 +7,7 @@ BootEFI = $(DriveFolder)/efi/boot/bootx64.efi
 PEAR = $(DriveFolder)/programs/pear.bin
 UTIL_FUNCTIONS = ./src/util_functions
 
-.PHONY: makefile run src
+.PHONY: makefile run
 .SUFFIXES:
 
 all: $(BootEFI) $(PEAR)
@@ -26,4 +26,6 @@ run: all
 	-drive format=raw,file=fat::rw::HDA_DRIVE \
 	-m 100M \
 	-monitor stdio \
-	-device intel-hda
+	-audiodev dsound,id=ds \
+	-device ich9-intel-hda,debug=5 -device hda-micro,audiodev=ds,debug=5 \
+	-no-reboot -d cpu_reset,int -D log.txt
