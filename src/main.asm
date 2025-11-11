@@ -51,28 +51,17 @@ start:
     call find_intel_hda
 
     ; setup the intel hda
-    ; ; call setup_intel_hda
     call map_intel_hda_interrupt
     call wake_hda_controller
     call setup_corb
     call setup_rirb
     call activate_dmas_and_interrupts
-    call query_codec
 
-    mov rcx, 1000
-    call pit_sleep
+    call query_and_start_codec
 
-    xor ebx, ebx
-    mov bl, [INTEL_HDA_PCI_HEADER.intline]
-    mov rdi, [SIS]
-    xor r8, r8
-    mov r8d, [rdi + SIS_ScreenWidth]
-    mov rdi, [rdi + SIS_VRAM]
-    shl r8, 6 ; second line
-    add rdi, r8
-    call printhex
-
-    ; jmp $
+.halt:
+    hlt
+    jmp $
     cli
     hlt
 
@@ -99,3 +88,7 @@ helloworld: db "Hello World!", 0
 
 %strcat _include FUNCTIONS "include.asm"
 %include _include
+
+    align 128
+audio_raw: INCBIN "audio.raw" ; file to play (in project dir)
+.end:

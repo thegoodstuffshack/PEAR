@@ -2,6 +2,7 @@
 ;
 ; https://www.intel.com/content/dam/www/public/us/en/documents/product-specifications/high-definition-audio-specification.pdf
 
+
 QEMU_HDA_ICH6_VENDOR equ 0x8086
 QEMU_HDA_ICH6_DEVICE equ 0x2668
 QEMU_HDA_ICH9_VENDOR equ 0x8086
@@ -9,6 +10,7 @@ QEMU_HDA_ICH9_DEVICE equ 0x293e
 
 ACTIVE_HDA_VENDOR equ QEMU_HDA_ICH9_VENDOR
 ACTIVE_HDA_DEVICE equ QEMU_HDA_ICH9_DEVICE
+
 
     align 4
 ; PCI Header Type 0
@@ -61,10 +63,28 @@ IHDA_REG_RIRBINTCNT equ 0x5A
 IHDA_REG_RIRBCTL equ 0x5C
 IHDA_REG_RIRBSTS equ 0x5D
 IHDA_REG_RIRBSIZE equ 0x5E
+IHDA_REG_STREAMDESC equ 0x80
+IHDA_REG_STREAMCBL equ 0x88
+IHDA_REG_STREAMLVI equ 0x8C
+IHDA_REG_STREAMFMT equ 0x92
+IHDA_REG_STREAMBDL_LBA equ 0x98
+IHDA_REG_STREAMBDL_UBA equ 0x9C
 
 ; Intel HDA CODEC Node Commands
-IHDA_NODE_GETPARAM equ 0xF00
-
+IHDA_NODECMD_GETPARAM equ 0xF0000
+IHDA_NODECMD_SETSTREAMCHAN equ 0x70600
+IHDA_NODECMD_PINCONTROL equ 0x70700
+IHDA_NODECMD_EAPDBTLENABLE equ 0x70C00
+IHDA_NODECMD_SETFORMAT equ 0x20000
+IHDA_NODECMD_AMPSETGAIN equ 0x30000
+IHDA_NODEDAT_NODECOUNT equ 0x04
+IHDA_NODEDAT_FNGROUPTYPE equ 0x05
+IHDA_NODEDAT_WIDGETCAP equ 0x09
+IHDA_NODEDAT_PINCAP equ 0x0C
+IHDA_NODEDAT_SUPPCMRATES equ 0x0A
+IHDA_NODEDAT_SUPFORMATS equ 0x0B
+IHDA_NODEDAT_OUTAMPCAP equ 0x12
+IHDA_CONVFORMAT_16 equ 0x0010 ; 16 bit 48kHz PCM audio
 
 ; finds and populates the local hda header
 find_intel_hda:
@@ -162,32 +182,32 @@ map_intel_hda_interrupt:
 
 ;
 intel_hda_interrupt_handler:
-    push rax
-    push rbx
+    ; push rax
+    ; push rbx
 
-    ; query intel hda to see what interrupt occurred
-    mov rax, [ihda_reg_bar]
-    mov ebx, [rax + IHDA_REG_INTERRUPTSTATUS]
-    and ebx, 1 << 30 ; CIS
-    jnz .cis_set
+    ; ; query intel hda to see what interrupt occurred
+    ; mov rax, [ihda_reg_bar]
+    ; mov ebx, [rax + IHDA_REG_INTERRUPTSTATUS]
+    ; and ebx, 1 << 30 ; CIS
+    ; jnz .cis_set
 
 .stream_interrupt:
     jmp .error ; not handled for now (also shouldnt happen yet)
 
-.cis_set:
-    mov bl, [rax + IHDA_REG_RIRBSTS]
-    and bl, 1
-    jz .error
+; .cis_set:
+;     mov bl, [rax + IHDA_REG_RIRBSTS]
+;     and bl, 1
+;     jz .error
 
-    call read_rirb_responses
-    or byte [rax + IHDA_REG_RIRBSTS], 1 ; reset RINTFL
+;     call read_rirb_responses
+;     or byte [rax + IHDA_REG_RIRBSTS], 1 ; reset RINTFL
 
-.end:
-    mov al, [INTEL_HDA_PCI_HEADER.intline]
-    call acknowledge_irq
-    pop rbx
-    pop rax
-    iretq
+; .end:
+;     mov al, [INTEL_HDA_PCI_HEADER.intline]
+;     call acknowledge_irq
+;     pop rbx
+;     pop rax
+;     iretq
 
 .error:
     lea rbx, [error_hda_interrupt_handler]
@@ -264,7 +284,7 @@ setup_rirb:
     mov rax, [ihda_reg_bar]
 
     and byte [rax + IHDA_REG_RIRBCTL], 0xF9 ; RIRBDMAEN = 0 RIRBOIC = 0
-    or byte [rax + IHDA_REG_RIRBCTL], 0x1 ; RINTCTL = 1
+    and byte [rax + IHDA_REG_RIRBCTL], 0xE ; RINTCTL = 0
 .dma_off:
     mov bl, [rax + IHDA_REG_RIRBCTL]
     and bl, 0x2
@@ -290,7 +310,7 @@ setup_rirb:
 
     or word [rax + IHDA_REG_RIRBWP], 0x8000 ; reset write pointer
 
-    mov byte [rax + IHDA_REG_RIRBINTCNT], 128 ; interrupt after N response/s
+    mov byte [rax + IHDA_REG_RIRBINTCNT], 128 ; RINTCTL - interrupt after N response/s
 
 .end:
     ret
@@ -300,8 +320,8 @@ setup_rirb:
 activate_dmas_and_interrupts:
     mov rax, [ihda_reg_bar]
 
-    mov dword [rax + IHDA_REG_INTERRUPTCONTROL], 0xC0000000 ; GIE CIE = 1, streams = 0
-    or byte [rax + IHDA_REG_GLOBALCONTROL], 0x1 ; UNSOL = 1
+    mov dword [rax + IHDA_REG_INTERRUPTCONTROL], 0xC0000000 ; GIE = 1, CIE = 1, streams = 0
+    and word [rax + IHDA_REG_GLOBALCONTROL], 0xEFF ; UNSOL = 0
 
     mov bx, [INTEL_HDA_PCI_HEADER.command]
     and bx, 1 << 10
@@ -324,7 +344,7 @@ activate_dmas_and_interrupts:
 
 
 ;
-query_codec:
+query_and_start_codec:
     mov rax, [ihda_reg_bar]
     mov bx, [rax + IHDA_REG_STATESTS]
     or bx, bx
@@ -337,18 +357,18 @@ query_codec:
     xor ecx, ecx
 
 .query_loop:
-    push bx
+    push rbx
+    push rcx
     and bx, 1
     jz .next
 
-    add ecx, IHDA_NODE_GETPARAM << 8
-    add ecx, 0x00
-    call write_corb ; node 0, command getparam
+    call query_node ; start at root node
 
 .next:
+    pop rcx
+    pop rbx
     add ecx, 1 << 28
     and ecx, 0xF0000000
-    pop bx
     shr bx, 1
     cmp bx, 0
     jnz .query_loop
@@ -357,6 +377,243 @@ query_codec:
     ret
 
 
+; Currently a baseline, only setup for qemu hda-micro codec
+;
+; IN ecx: ((codec address + 1) << 28) + node index << 20
+query_node:
+    or ecx, IHDA_NODECMD_GETPARAM | IHDA_NODEDAT_NODECOUNT
+    call write_corb
+    ; call get_rirb_response
+
+    and ecx, 0xF0000000
+    or ecx, IHDA_NODECMD_GETPARAM | IHDA_NODEDAT_FNGROUPTYPE | (1 << 20)
+    call write_corb
+    ; call get_rirb_response
+
+    and ecx, 0xF0000000
+    or ecx, IHDA_NODECMD_GETPARAM | IHDA_NODEDAT_NODECOUNT | (1 << 20)
+    call write_corb
+    ; call get_rirb_response
+
+    ; query widget capabilites
+    and ecx, 0xF0000000
+    or ecx, IHDA_NODECMD_GETPARAM | IHDA_NODEDAT_WIDGETCAP | (2 << 20)
+    call write_corb
+    ; call get_rirb_response
+    and ecx, 0xF0000000
+    or ecx, IHDA_NODECMD_GETPARAM | IHDA_NODEDAT_WIDGETCAP | (3 << 20)
+    call write_corb
+    ; call get_rirb_response
+    and ecx, 0xF0000000
+    or ecx, IHDA_NODECMD_GETPARAM | IHDA_NODEDAT_WIDGETCAP | (4 << 20)
+    call write_corb
+    ; call get_rirb_response
+    and ecx, 0xF0000000
+    or ecx, IHDA_NODECMD_GETPARAM | IHDA_NODEDAT_WIDGETCAP | (5 << 20)
+    call write_corb
+    ; call get_rirb_response
+
+    ; 3 and 5 pin complexes, 2 out, 4 in
+
+    ; query pin complexes for capabilites
+    and ecx, 0xF0000000
+    or ecx, IHDA_NODECMD_GETPARAM | IHDA_NODEDAT_PINCAP | (3 << 20)
+    call write_corb
+    ; call get_rirb_response
+    and ecx, 0xF0000000
+    or ecx, IHDA_NODECMD_GETPARAM | IHDA_NODEDAT_PINCAP | (5 << 20)
+    call write_corb
+    ; call get_rirb_response
+
+    ; 3 out pin, 5 in pin
+
+    ; read format, pcm rates, and amp override (node 2)
+    and ecx, 0xF0000000
+    or ecx, IHDA_NODECMD_GETPARAM | IHDA_NODEDAT_SUPPCMRATES | (2 << 20)
+    call write_corb
+    ; call get_rirb_response
+    and ecx, 0xF0000000
+    or ecx, IHDA_NODECMD_GETPARAM | IHDA_NODEDAT_SUPFORMATS | (2 << 20)
+    call write_corb
+    ; call get_rirb_response
+    and ecx, 0xF0000000
+    or ecx, IHDA_NODECMD_GETPARAM | IHDA_NODEDAT_OUTAMPCAP | (2 << 20)
+    call write_corb
+    ; call get_rirb_response
+
+    ; dont care about pcm rates (use 48kHz anyway), 16 bit audio, 1dB steps, 0x4A steps, 0x4A'th step is 0dB
+
+    ; (hda link -> DAC(2) -> out(3)) 16bit 48kHz audio
+
+    ; set DAC stream format
+    and ecx, 0xF0000000
+    or ecx, IHDA_NODECMD_SETFORMAT | IHDA_CONVFORMAT_16 | (2 << 20)
+    call write_corb
+    ; call get_rirb_response
+
+    ; lower DAC volume and unmute
+    and ecx, 0xF0000000
+    or ecx, IHDA_NODECMD_AMPSETGAIN | 0xB002 | (2 << 20)
+    call write_corb
+    ; call get_rirb_response
+
+    push rcx
+    call setup_out_stream
+    pop rcx
+
+    ; set DAC stream and lowest channel
+    and ecx, 0xF0000000
+    movzx eax, byte [ihda_output_stream]
+    and al, 0xF
+    shl eax, 4
+    or ecx, eax
+    or ecx, IHDA_NODECMD_SETSTREAMCHAN | 0 | (2 << 20)
+    call write_corb
+    ; call get_rirb_response
+
+    ; enable out pin
+    and ecx, 0xF0000000
+    or ecx, IHDA_NODECMD_PINCONTROL | 1 << 6 | (3 << 20)
+    call write_corb
+    ; call get_rirb_response
+
+    call read_rirb_responses
+
+    ; set run bit to 1
+    mov rax, [ihda_reg_bar]
+    movzx rbx, byte [ihda_output_stream]
+    shl rbx, 5
+    or byte [rax + rbx + IHDA_REG_STREAMDESC], 0x2
+
+.end:
+    ret
+
+
+; 16bit 48kHz PCM audio
+setup_out_stream:
+    mov rax, [ihda_reg_bar]
+    mov bx, [rax + IHDA_REG_GLOBALCAPABILITIES]
+    shr bx, 4
+    shr bl, 4
+    mov [ihda_output_stream], bl
+    and rbx, 0xF
+    shl rbx, 5
+
+    and byte [rax + rbx + IHDA_REG_STREAMDESC], 0xFD ; RUN = 0
+
+    or byte [rax + rbx + IHDA_REG_STREAMDESC], 1 ; SRST = 1 (reset)
+.wait_for_reset:
+    mov dl, [rax + rbx + IHDA_REG_STREAMDESC]
+    and dl, 1
+    jz .wait_for_reset
+
+    and byte [rax + rbx + IHDA_REG_STREAMDESC], 0xFE ; SRST = 0 (un reset)
+.wait_for_un_reset:
+    mov dl, [rax + rbx + IHDA_REG_STREAMDESC]
+    and dl, 1
+    jnz .wait_for_un_reset
+
+    or byte [rax + rbx + IHDA_REG_STREAMDESC], 0x1C ; enable all ints
+    mov dl, [ihda_output_stream]
+    shl dl, 4
+    or [rax + rbx + IHDA_REG_STREAMDESC + 2], dl ; set STRM to stream number
+    push rbx
+
+    ; set stream desc stuff
+    lea rdx, [bdl]
+    mov [rax + rbx + IHDA_REG_STREAMBDL_LBA], edx ; set lower base address
+    shr rdx, 32
+    mov [rax + rbx + IHDA_REG_STREAMBDL_UBA], edx ; set upper base address
+
+    call write_bdl_entries
+
+    pop rbx
+    dec cl
+    mov rax, [ihda_reg_bar]
+    mov [rax + rbx + IHDA_REG_STREAMLVI], cl
+
+    mov dword [rax + rbx + IHDA_REG_STREAMCBL], audio_raw.end - audio_raw ; audio needs to fit in a dword
+
+    and word [rax + rbx + IHDA_REG_STREAMFMT], 0x8080
+    or word [rax + rbx + IHDA_REG_STREAMFMT], IHDA_CONVFORMAT_16
+
+.end:
+    ret
+
+
+; Returns cl: number of entries
+write_bdl_entries:
+    xor cl, cl
+    lea r8, [audio_raw.end]
+    lea rax, [audio_raw]
+    mov ebx, 0xFFFFF ; audio input needs to be bigger than this value
+    xor edx, edx
+
+.loop:
+    mov r9, rax
+    add r9, rbx
+    cmp r8, r9
+    jb .last_entry
+    call write_bdl_entry
+    add cl, 1
+    cmp cl, 0xFF
+    je .end
+    add rax, rbx
+    jmp .loop
+
+.last_entry:
+    sub r8, rax
+    jz .end
+    mov ebx, r8d
+    call write_bdl_entry
+    inc cl
+
+.end:
+    ret
+
+
+; rax: Address of data
+; ebx: Length of data
+; edx: IOC
+write_bdl_entry:
+    lea r9, [bdl]
+    movzx r10, byte [bdl_wp]
+    shl r10, 4
+    movnti [r9 + r10], rax
+    movnti [r9 + r10 + 8], ebx
+    movnti [r9 + r10 + 12], edx
+    add byte [bdl_wp], 1
+.end:
+    ret
+
+
+; assume no unsolicited responses
+; reads latest response and updates rp accordingly
+; Returns rax: response
+get_rirb_response:
+    mov rax, [ihda_reg_bar]
+    mov al, [rax + IHDA_REG_RIRBWP]
+    cmp al, [rirb_rp]
+    jne .read_response
+
+    lea rbx, [error_hda_no_rirb_response]
+    call error_and_halt
+
+.read_response:
+    mov [rirb_rp], al
+    lea rbx, [rirb_buffer]
+    and rax, 0xFF
+    shl rax, 3
+    mov rax, [rbx + rax]
+
+.end:
+    ret
+
+
+; 31:28 Codec Address
+; 27:20 Node Index
+; 19:8  Command
+; 7:0   Data
 ; IN ecx: node command
 write_corb:
     mov rax, [ihda_reg_bar]
@@ -405,9 +662,6 @@ read_rirb_responses:
 
 ; IN rdx: rirb response
 parse_rirb_response:
-    ; match response to command
-
-
     push rax
     push rbx
     push rcx
@@ -417,8 +671,6 @@ parse_rirb_response:
     mov eax, [rdi + SIS_ScreenWidth]
     mov rdi, [rdi + SIS_VRAM]
     shl rax, 6
-    add rdi, rax
-    add rdi, rax
     add rdi, rax
     add rdi, rax
     add rdi, rax
@@ -448,22 +700,28 @@ parse_rirb_response:
 .inc: db 1
 
 
-error_hda_not_found_str: db "Error: intel HDA not found", 0
-error_hda_not_hda_str: db "Error: intel HDA found but not actually", 0
+error_hda_not_found_str: db "Error: Intel HDA not found", 0
+error_hda_not_hda_str: db "Error: Intel HDA found but not actually", 0
 error_hda_io_space_bar_str: db "Error: I/O space BAR not supported", 0
 error_hda_intline_not_valid: db "Error: PCI intline value not set or invalid", 0
 error_hda_corb_256_entries_str: db "Error: Less than 256 corb entries not supported", 0
 error_hda_rirb_256_entries_str: db "Error: Less than 256 rirb entries not supported", 0
 error_hda_interrupts_disabled: db "Error: Need to set pci command register bit 10", 0
-error_hda_codecs_gone: db "Error: No intel HDA codecs", 0
-error_hda_interrupt_handler: db "Error: intel HDA interrupt handler broke", 0
+error_hda_codecs_gone: db "Error: No Intel HDA codecs", 0
+error_hda_interrupt_handler: db "Error: Intel HDA interrupt handler broke", 0
+error_hda_no_rirb_response: db "Error: Intel HDA CORB command did not get response", 0
 
+
+ihda_output_stream db 0
 
 corb_entry_size equ 4
 rirb_entry_size equ 8
+bdl_entry_size equ 16
 
 rirb_rp: db 0
+bdl_wp: db 0
 
     align 128
 corb_buffer: times corb_entry_size * 256 db 0 ; ensure writes to this memory are not cached (movnti)
 rirb_buffer: times rirb_entry_size * 256 db 0
+bdl: times bdl_entry_size * 256 db 0

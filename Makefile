@@ -5,6 +5,7 @@ DriveFolder = ./HDA_DRIVE
 
 BootEFI = $(DriveFolder)/efi/boot/bootx64.efi
 PEAR = $(DriveFolder)/programs/pear.bin
+AUDIO = $(DriveFolder)/data/audio.raw
 UTIL_FUNCTIONS = ./src/util_functions
 
 .PHONY: makefile run
@@ -27,5 +28,6 @@ run: all
 	-m 100M \
 	-monitor stdio \
 	-audiodev dsound,id=ds \
-	-device ich9-intel-hda,debug=5 -device hda-micro,audiodev=ds,debug=5 \
-	-no-reboot -d cpu_reset,int -D log.txt
+	-device ich9-intel-hda,debug=0 -device hda-micro,audiodev=ds,debug=0 \
+
+# 	-no-reboot -d cpu_reset,int -D log.txt
