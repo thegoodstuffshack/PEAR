@@ -18,16 +18,11 @@ PIT_DIGIT_BIT equ 0b00_00_000_0
 PIT_DIGIT_BCD equ 0b00_00_000_1
 
 
-; curr_pit_command_byte: db 0
-
-
 ; sets the PIT command byte and reload value
 ;
 ; IN al: Command Byte (7-6 channel, 5-4 access mode, 3-1 op mode, 0 digit mode)
 ; IN bx: reload value (bh hi, bl lo)
 program_pit:
-    ; mov [curr_pit_command_byte], al
-
     xor dx, dx
     mov dl, al
     shr dl, 6
