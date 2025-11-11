@@ -71,7 +71,6 @@ pit_interrupt_handler:
 
 
 ; Waits at least (num - 1) * (reload_value / 1193182) seconds
-; An input of 0 will be changed to 1 cycle
 ;
 ; IN rcx: num of pit cycles
 pit_sleep:
