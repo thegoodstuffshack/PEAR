@@ -75,10 +75,6 @@ pit_interrupt_handler:
 ;
 ; IN rcx: num of pit cycles
 pit_sleep:
-    or rcx, rcx ; if input is 0, make it 1 (prevent softlock with current implementation)
-    jnz .skip_add
-    inc rcx
-.skip_add:
     mov qword [pit_interrupt_handler.counter], rcx
 
     sti ; ensure interrupts are enabled before halting
